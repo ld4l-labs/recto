@@ -1,3 +1,5 @@
+profile-edit/
+
 #data
 resources/
 
@@ -59,4 +61,3 @@ typings/
 
 # dotenv environment variables file
 .env
-
