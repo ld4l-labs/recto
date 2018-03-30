@@ -8,7 +8,7 @@ const fs = require('fs');
 const _ = require('underscore');
 var proxy = require('http-proxy-middleware');
 
-versoProxy = proxy({target: 'http://mlvlp04.loc.gov:3001', pathRewrite: {'^/verso' : '/verso'
+versoProxy = proxy({target: 'http://localhost:3001', pathRewrite: {'^/verso' : '/verso'
 //, '^/explorer': '/'
 }});
 
@@ -20,7 +20,7 @@ app.use("/verso", versoProxy);
 
 app.use(bodyParser.urlencoded({
     extended: false,
-    limit: '250mb'    
+    limit: '250mb'
 }));
 
 app.use(bodyParser.json({limit:'250mb'}));
@@ -218,6 +218,8 @@ prof_import.post(function(req,res){
 });
 
 //bfe routes
+var bferouter = express.Router();
+
 // var bfe_rdfxml = bferouter.route('/rdfxml');
 var prof_rdfxml = router.route('/rdfxml');
 
@@ -261,7 +263,7 @@ prof_publish.post(function(req,res){
    var dirname = __dirname + resources;
    var posted = "/marklogic/applications/natlibcat/admin/bfi/bibrecs/bfe-preprocess/valid/posted/";
    var name = req.body.name + ".rdf";
-   var rdfxml = JSON.parse(req.body.rdfxml); 
+   var rdfxml = JSON.parse(req.body.rdfxml);
    var path = dirname + name;
    //console.log(req.params);
    console.log(path);
@@ -276,7 +278,7 @@ prof_publish.post(function(req,res){
    }
 
    fs.writeFile(path, rdfxml, {encoding: 'utf8', mode: 0o777} , function (err) {
-    if (err) res.status(500);    
+    if (err) res.status(500);
     res.status(200).send({"name": name, "url": resources + name, "objid": objid, "lccn": lccn});
    });
 });
@@ -290,7 +292,7 @@ prof_publish_response.post(function(req,res){
    var decimaltranslator = shortuuid("0123456789");
    var request = require('request');
    var rp = require('request-promise');
-    
+
    var filename = req.body.name;
    if (filename !== path.basename(req.body.name)) {
         filename = path.basename(req.body.name, path.extname(req.body.name));
@@ -346,21 +348,21 @@ var prof_retrieveLDS = router.route('/retrieveLDS');
 prof_retrieveLDS.get(function(req, res){
 
     var shortuuid = require('short-uuid');
-    
+
     var decimaltranslator = shortuuid("0123456789");
-    
+
     var request = require('request');
-    
+
     var rp = require('request-promise');
-    
+
     var _ = require('lodash');
-    
+
     var instanceURL = req.query.uri;
-    
-    var options = { uri:instanceURL, 
+
+    var options = { uri:instanceURL,
                     json:true
                   };
-    
+
     var workURL, itemURL;
     var jsonldReturn = [];
 
@@ -396,7 +398,7 @@ prof_retrieveLDS.get(function(req, res){
 
 });
 
-//var bfe_whichrt = bferouter.route('/whichrt');
+// var bfe_whichrt = bferouter.route('/whichrt');
 var prof_whichrt = router.route('/whichrt');
 
 prof_whichrt.get(function(req,res){
@@ -433,12 +435,12 @@ passport.use(new Strategy(
 		'Authorization': 'Basic' + new Buffer(username + ':' + password).toString('base64')
 	}
     };
-	
+
     request = http.get(options, function(res){
         res.on('error', function(err) { console.log(err); });
     });
-    
-    callback(cb);    
+
+    callback(cb);
 
   }));
 

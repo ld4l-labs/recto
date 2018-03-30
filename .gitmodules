@@ -3,4 +3,4 @@
 	url = https://github.com/lcnetdev/profile-edit.git
 [submodule "bfe"]
 	path = bfe
-	url = https://github.com/lcnetdev/bfe.git
+	url = https://github.com/ld4l-labs/bfe.git
