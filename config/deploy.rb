@@ -43,8 +43,10 @@ namespace :deploy do
   after :finished, :restart do
     on roles(:app) do
       within release_path do
-        execute "cd #{release_path} pm2 start server.js --name recto"
-         execute "pm2 status"
+        execute "cd #{release_path} && forever stopall && sleep 5 && forever start server.js"
+        execute 'sleep 5; true'
+        execute 'cd /opt/app/bibframe/verso && forever start server/server.js'
+        execute 'forever list'
       end
     end
   end
