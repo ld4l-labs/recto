@@ -43,8 +43,7 @@ namespace :deploy do
   after :finished, :restart do
     on roles(:app) do
       within release_path do
-        execute "cd #{release_path} && grunt --force"
-         execute "pm2 start server.js --name recto"
+        execute "cd #{release_path} pm2 start server.js --name recto"
          execute "pm2 status"
       end
     end
