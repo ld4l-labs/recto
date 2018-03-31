@@ -45,11 +45,13 @@
             }
         }
 
-        function save(data, csrf, bfelog){
+        function save(data, csrf, bfelog, callback){
             var $messagediv = $('<div>', {id: "bfeditor-messagediv", class:"col-md-10 main"});
 
+	    var url = "/verso/api/bfs/upsertWithWhere?where=%7B%22name%22%3A%20%22"+data.name+"%22%7D";
+
             $.ajax({
-               url: "/api/",
+               url: url,
                type: "POST",
                data:JSON.stringify(data),
                csrf: csrf,
@@ -58,32 +60,103 @@
             }).done(function (data) {
                 document.body.scrollTop = document.documentElement.scrollTop = 0;
                 bfelog.addMsg(new Error(), "INFO", "Saved " + data.id);
-                $messagediv.append('<div class="alert alert-success"><strong>Record Created:</strong><a href='+data.url+'>'+data.name+'</a></div>');
+                var $messagediv = $('<div>', {id: "bfeditor-messagediv"});
+                var decimaltranslator = window.ShortUUID("0123456789");
+                var resourceName = "e" + decimaltranslator.fromUUID(data.name);
+                $messagediv.append('<div class="alert alert-info"><strong>Description saved:</strong><a href='+data.url+'>'+resourceName+'</a></div>')
                 $('#bfeditor-formdiv').empty();
                 $('#save-btn').remove();
-                $messagediv.insertBefore('#bfeditor-previewPanel');
+                $messagediv.insertBefore('.nav-tabs');
                 $('#bfeditor-previewPanel').remove();
+                $('.nav-tabs a[href="#browse"]').tab('show')
                 bfeditor.bfestore.store = [];
+                window.location.hash = "";
+                callback(true, data.name);
             }).fail(function (XMLHttpRequest, textStatus, errorThrown){
                 bfelog.addMsg(new Error(), "ERROR", "FAILED to save");
                 bfelog.addMsg(new Error(), "ERROR", "Request status: " + textStatus + "; Error msg: " + errorThrown);
                 $messagediv.append('<div class="alert alert-danger"><strong>Save Failed:</strong>'+errorThrown+'</span>');
-                $messagediv.insertBefore('#bfeditor-previewPanel');
+                $messagediv.insertBefore('.nav-tabs');
             }).always(function(){                       
                 $('#table_id').DataTable().ajax.reload();
             });
         }
 
-        function retrieve(url, bfestore, bfelog, callback){
+	function publish(data, rdfxml, savename, bfelog, callback){
+            var $messagediv = $('<div>', {id: "bfeditor-messagediv", class:"col-md-10 main"});
+
+            //var url = "http://mlvlp04.loc.gov:8201/bibrecs/bfe2mets.xqy";
+	    var url = config.url + "/profile-edit/server/publish";
+        var saveurl = "/verso/api/bfs/upsertWithWhere?where=%7B%22name%22%3A%20%22"+savename+"%22%7D";
+
+        var savedata = {};
+        savedata.name = savename;
+        savedata.profile = data.profile;
+        savedata.url = data.url;
+        savedata.created = data.created;
+        savedata.modified = data.modified;
+        savedata.status = data.status;
+        savedata.rdf = data.rdf;
+
+	    data.rdfxml = JSON.stringify(rdfxml);
+	
+        $.when(
             $.ajax({
-                url: url,
+               url: saveurl,
+               type: "POST",
+               data:JSON.stringify(savedata),
+               dataType: "json",
+               contentType: "application/json; charset=utf-8"
+            }),
+            $.ajax({
+               url: url,
+               type: "POST",
+               data: JSON.stringify(data),
+    	       dataType: "json",
+               contentType: "application/json; charset=utf-8"
+            })).done(function (savedata, publishdata) {
+                document.body.scrollTop = document.documentElement.scrollTop = 0;
+                bfelog.addMsg(new Error(), "INFO", "Published " + publishdata[0].name);
+                var $messagediv = $('<div>', {id: "bfeditor-messagediv"});
+                $messagediv.append('<div class="alert alert-info"><strong>Description submitted for posting:</strong><a href=' + config.basedbURI + "/" + publishdata[0].objid+'>'+publishdata[0].lccn+'</a></div>');
+                $('#bfeditor-formdiv').empty();
+                $('#save-btn').remove();
+                $messagediv.insertBefore('.nav-tabs');
+                $('#bfeditor-previewPanel').remove();
+                $('.nav-tabs a[href="#browse"]').tab('show')
+                bfeditor.bfestore.store = [];
+                window.location.hash = "";
+                callback(true, data.name);                
+            }).fail(function (XMLHttpRequest, textStatus, errorThrown){
+                bfelog.addMsg(new Error(), "ERROR", "FAILED to save");
+                bfelog.addMsg(new Error(), "ERROR", "Request status: " + textStatus + "; Error msg: " + errorThrown);
+                $messagediv.append('<div class="alert alert-danger"><strong>Save Failed:</strong>'+errorThrown+'</span>');
+                $messagediv.insertBefore('#bfeditor-previewPanel');
+            }).always(function(){
+                $('#table_id').DataTable().ajax.reload();
+            });
+        }
+
+
+        function retrieve(uri, bfestore, loadtemplates, bfelog, callback){
+	    
+	    var url = config.url + "/profile-edit/server/whichrt";
+	
+            $.ajax({
                 dataType: "json",
+                type: "GET",
+                async: false,
+        		data: { uri: uri},
+                url: url,
                 success: function (data) {
                     bfelog.addMsg(new Error(), "INFO", "Fetched external source baseURI" + url);
                     bfelog.addMsg(new Error(), "DEBUG", "Source data", data);
-                    bfestore.store = [];
-                    tempstore = bfestore.jsonld2store(data);
-                    callback();
+                    bfestore.store = bfestore.jsonldcompacted2store(data, function(expanded) {
+                       bfestore.store = [];
+                       tempstore = bfestore.jsonld2store(expanded);
+                       callback(loadtemplates);
+                    });
+		            //bfestore.n32store(data, url, tempstore, callback);
                     },
                 error: function(XMLHttpRequest, textStatus, errorThrown) { 
                     bfelog.addMsg(new Error(), "ERROR", "FAILED to load external source: " + url);
@@ -92,8 +165,36 @@
             });
         }
 
+        function retrieveLDS(uri, bfestore, loadtemplates, bfelog, callback){
+
+        var url = config.url + "/profile-edit/server/retrieveLDS";
+
+            $.ajax({
+                dataType: "json",
+                type: "GET",
+                async: false,
+                data: { uri: uri},
+                url: url,
+                success: function (data) {
+                    bfelog.addMsg(new Error(), "INFO", "Fetched external source baseURI" + url);
+                    bfelog.addMsg(new Error(), "DEBUG", "Source data", data);
+                    bfestore.store = bfestore.jsonldcompacted2store(data, function(expanded) {
+                       bfestore.store = [];
+                       tempstore = bfestore.jsonld2store(expanded);
+                       callback(loadtemplates);
+                    });
+                    //bfestore.n32store(data, url, tempstore, callback);
+                    },
+                error: function(XMLHttpRequest, textStatus, errorThrown) {
+                    bfelog.addMsg(new Error(), "ERROR", "FAILED to load external source: " + url);
+                    bfelog.addMsg(new Error(), "ERROR", "Request status: " + textStatus + "; Error msg: " + errorThrown);
+                }
+            });
+        }
+
+
         function deleteId(id, csrf, bfelog){
-            var url = "http://mlvlp04.loc.gov:3000/api/" + id;
+            var url = config.url + "/verso/api/bfs/" + id;
 
             //$.ajaxSetup({
             //    beforeSend: function(xhr, settings){getCSRF(xhr, settings, csrf);}
@@ -120,132 +221,243 @@
                 "level": "DEBUG",
                 "toConsole": true
             },*/
-            "baseURI": "http://bibframe.org/",
+            "url" : "http://mlvlp04.loc.gov:3000",
+            "baseURI": "http://id.loc.gov/",
+            "basedbURI": "http://mlvlp04.loc.gov:8230",
+            "resourceURI": "http://mlvlp04.loc.gov:8230/resources",
             "profiles": [
-                "/static/bfe/static/profiles/bibframe/BIBFRAME Agents.json",
-                "/static/bfe/static/profiles/bibframe/BIBFRAME Annotations.json",
-                "/static/bfe/static/profiles/bibframe/BIBFRAME Authorities.json",
-                "/static/bfe/static/profiles/bibframe/BIBFRAME AgentsMono.json",
-                "/static/bfe/static/profiles/bibframe/BIBFRAME Entities.json",
-                "/static/bfe/static/profiles/bibframe/WEI-monograph.json",
-                "/static/bfe/static/profiles/bibframe/WEI-notated-music.json",
-                "/static/bfe/static/profiles/bibframe/WEI-serial.json",
-                "/static/bfe/static/profiles/bibframe/WEI-cartographic.json",
-                "/static/bfe/static/profiles/bibframe/WEI-BluRayDVD.json",
-                "/static/bfe/static/profiles/bibframe/WEI-Audio\ CD.json"
-            ],
+		        "static/profiles/bibframe/BIBFRAME 2.0 Agents.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Agents Contribution.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Agents Primary Contribution.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Form.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Language.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 LCC.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Notated Music.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Place.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Publication, Distribution, Manufacturer Activity.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Related Works and Expressions.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Topic.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Serial.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Monograph.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Admin Metadata.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Cartographic.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Sound Recording: Analog.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Sound Recording: Audio CD.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Sound Recording: Audio CD-R.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Moving Image: BluRay DVD.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Moving Image: 35mm Feature Film.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Prints and Photographs.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 RWO.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Title Information.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Edition Information.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 Series Information.json",
+			    "static/profiles/bibframe/BIBFRAME 2.0 DDC.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Item.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Identifiers.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Note.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Rare Materials.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Sound Recording: Audio CD-R.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 Load.json",
+                "static/profiles/bibframe/BIBFRAME 2.0 IBC.json"
+   		    ],
             "startingPoints": [
-                        {"menuGroup": "Monograph",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                type: ["http://bibframe.org/vocab/Monograph"],
-                                useResourceTemplates: [ "profile:bf:Instance:Monograph" ]
-                            },
-                            {
-                                label: "Work", 
-                                type: ["http://bibframe.org/vocab/Text","http://bibframe.org/vocab/Work"],
-                                useResourceTemplates: [ "profile:bf:Work:Monograph", "profile:bf:RDAExpression:Monograph" ]
-                            },
-                            {
-                                label: "Work, Instance",
-                                type: ["http://bibframe.org/vocab/Text","http://bibframe.org/vocab/Work","http://bibframe.org/vocab/Monograph"],
-                                useResourceTemplates: [ "profile:bf:Work:Monograph", "profile:bf:RDAExpression:Monograph", "profile:bf:Instance:Monograph", "profile:bf:Annotation:AdminMeta" ]
-                            }
+                {"menuGroup": "Monograph",
+                "menuItems": [
+                    {
+                        label: "Instance",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                        useResourceTemplates: [ "profile:bf2:Monograph:Instance" ]
+                    },
+                    {
+                        label: "Work",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                        useResourceTemplates: [ "profile:bf2:Monograph:Work" ]
+                    }
 
-                        ]},
-                        {"menuGroup": "Notated Music",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                type: ["http://bibframe.org/vocab/Instance"],
-                                useResourceTemplates: [ "profile:bf:Instance:NotatedMusic" ]
-                            },
-                            {
-                                label: "Work",
-                                type: ["http://bibframe.org/vocab/NotatedMusic","http://bibframe.org/vocab/Work"],
-                                useResourceTemplates: [ "profile:bf:Work:NotatedMusic", "profile:bf:RDAExpression:NotatedMusic" ]
-                            },
-                            {
-                                label: "Work, Instance",
-                                type: ["http://bibframe.org/vocab/NotatedMusic","http://bibframe.org/vocab/Work","http://bibframe.org/vocab/Instance"],
-                                useResourceTemplates: [ "profile:bf:Work:NotatedMusic", "profile:bf:RDAExpression:NotatedMusic", "profile:bf:Instance:NotatedMusic", "profile:bf:Annotation:AdminMeta" ]
-                            }
+                ]},
+                {"menuGroup": "Notated Music",
+                "menuItems": [
+                    {
+                        label: "Create Work",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                        useResourceTemplates: [ "profile:bf2:NotatedMusic:Work" ]
+                    },
+                    {
+                        label: "Create RDA Expression",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                        useResourceTemplates: [ "profile:bf2:NotatedMusic:Expression" ]
+                    },
+                    {
+                        label: "Create Instance", 
+                        type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                        useResourceTemplates: [ "profile:bf2:NotatedMusic:Instance" ]
+                    }
+                ]},
+                {"menuGroup": "Serial",
+                "menuItems": [
+                    {
+                        label: "Instance",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Serial"],
+                        useResourceTemplates: [ "profile:bf2:Serial:Instance" ]
+                    },
+                    {
+                        label: "Work",
+                        type: ["http://id.loc.gov/ontologies/bibframe/Text"],
+                        useResourceTemplates: [ "profile:bf2:Serial:Work" ]
+                    }
 
+                ]},
+            	{"menuGroup": "Cartographic",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:Cartographic:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:Cartographic:Work" ]
+                }
 
-                        ]},
-                        {"menuGroup": "Serial",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                type: ["http://bibframe.org/vocab/Serial"],
-                                useResourceTemplates: [ "profile:bf:Instance:Serial" ]
-                            },
-                            {
-                                label: "Work",
-                                type: ["http://bibframe.org/vocab/Text","http://bibframe.org/vocab/Work"],
-                                useResourceTemplates: [ "profile:bf:Work:Serial", "profile:bf:RDAExpression:Serial" ]
-                            },
-                            {
-                                label: "Work, Instance w/AdminMetadata",
-                                type: ["http://bibframe.org/vocab/Text","http://bibframe.org/vocab/Work","http://bibframe.org/vocab/Serial"],
-                                useResourceTemplates: [ "profile:bf:Work:NotatedMusic", "profile:bf:RDAExpression:NotatedMusic", "profile:bf:Instance:NotatedMusic", "profile:bf:Annotation:AdminMeta" ]
-                            }
+            ]},
+			{"menuGroup": "Sound Recording: Audio CD",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:SoundRecording:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:SoundRecording:Work" ]
+                }
 
-                        ]},
-                        {"menuGroup": "Cartographic",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                type: ["http://bibframe.org/vocab/Monograph"],
-                                useResourceTemplates: [ "profile:bf:Instance:Cartography" ]
-                            },
-                            {
-                                label: "Work",
-                                type: ["http://bibframe.org/vocab/Cartography","http://bibframe.org/vocab/Work"],
-                                useResourceTemplates: [ "profile:bf:Work:Cartography", "profile:bf:RDAExpression:Cartography" ]
-                            },
-                            {
-                                label: "Work, Instance w/AdminMetadata",
-                                type: ["http://bibframe.org/vocab/Cartography","http://bibframe.org/vocab/Work","http://bibframe.org/vocab/Monograph"],
-                                useResourceTemplates: [ "profile:bf:Work:NotatedMusic", "profile:bf:RDAExpression:NotatedMusic", "profile:bf:Instance:NotatedMusic", "profile:bf:Annotation:AdminMeta" ]
-                            }
+            ]},
+            {"menuGroup": "Sound Recording: Audio CD-R",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:SoundCDR:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:SoundCDR:Work" ]
+                }
 
-                        ]},
-                        {"menuGroup": "BluRay DVD",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                useResourceTemplates: [ "profile:bf:Instance:BluRayDVD" ]
-                            },
-                            {
-                                label: "Work",
-                                useResourceTemplates: [ "profile:bf:Work:BluRayDVD", "profile:bf:RDAExpression:BluRayDVD" ]
-                            },
-                            {
-                                label: "Work, Instance",
-                                useResourceTemplates: [ "profile:bf:Work:BluRayDVD", "profile:bf:RDAExpression:BluRayDVD", "profile:bf:Instance:BluRayDVD" ]
-                            }
-                        ]},
-                        {"menuGroup": "Audio CD",
-                        "menuItems": [
-                            {
-                                label: "Instance",
-                                useResourceTemplates: [ "profile:bf:Instance:AudioCD" ]
-                            },
-                            {
-                                label: "Work",
-                                useResourceTemplates: [ "profile:bf:Work:AudioCD", "profile:bf:RDAExpression:AudioCD" ]
-                            },
-                            {
-                                label: "Work, Instance",
-                                useResourceTemplates: [ "profile:bf:Work:AudioCD", "profile:bf:RDAExpression:AudioCD", "profile:bf:Instance:AudioCD" ]
-                            }
-                        ]}
+            ]},
+            {"menuGroup": "Sound Recording: Analog",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:Analog:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:Analog:Work" ]
+                }
+
+            ]},
+            {"menuGroup": "Moving Image: BluRay DVD",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:MIBluRayDVD:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:MIBluRayDVD:Work" ]
+                }
+
+            ]},
+            {"menuGroup": "Moving Image: 35mm Feature Film",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:35mmFeatureFilm:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:35mmFeatureFilm:Work" ]
+                }
+
+            ]},
+            {"menuGroup": "Prints and Photographs",
+            "menuItems": [
+                {
+                    label: "Physical Description",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:Graphics:Description" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:Graphics:Work" ]
+                }
+
+            ]},
+            {"menuGroup": "Rare Materials",
+            "menuItems": [
+                {
+                    label: "Instance",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Instance"],
+                    useResourceTemplates: [ "profile:bf2:RareMat:Instance" ]
+                },
+                {
+                    label: "Work",
+                    type: ["http://id.loc.gov/ontologies/bibframe/Work"],
+                    useResourceTemplates: [ "profile:bf2:RareMat:Work" ]
+                }
+
+            ]},
+            {"menuGroup": "Authorities",
+            "menuItems": [
+                {
+                    label: "Person",
+                    type: ["http://www.loc.gov/standards/mads/rdf/v1.html#PersonalName"],
+                    useResourceTemplates: [ "profile:bf2:Agent:Person" ]
+                },
+                {
+                    label: "Family",
+                    type: ["http://www.loc.gov/standards/mads/rdf/v1.html#FamilyName"],
+                    useResourceTemplates: [ "profile:bf2:Agent:Family" ]
+                },
+                {
+                    label: "Corporate Body",
+                    type: ["http://www.loc.gov/standards/mads/rdf/v1.html#CorporateName"],
+                    useResourceTemplates: [ "profile:bf2:Agent:CorporateBody" ]
+                },
+                {
+                    label: "Conference",
+                    type: ["http://www.loc.gov/standards/mads/rdf/v1.html#Conference"],
+                    useResourceTemplates: [ "profile:bf2:Agent:Conference" ]
+                },                            
+			    {
+                    label: "Jurisdiction",
+                    type: ["http://www.loc.gov/standards/mads/rdf/v1.html#Territory"],
+                    useResourceTemplates: [ "profile:bf2:Agent:Jurisdiction" ]
+                }
+            ]}
+
             ],
             "save": {
                 "callback": save
             },
+    	    "publish": {
+	    	    "callback": publish
+	        },
+            "retrieveLDS": {
+                "callback":retrieveLDS
+            },            
             "retrieve": {
                 "callback": retrieve
             },
