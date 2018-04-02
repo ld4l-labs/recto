@@ -36,6 +36,7 @@ install_plugin Capistrano::SCM::Git
 # require "dlss/capistrano"
 require 'capistrano/one_time_key'
 require 'capistrano/npm'
+require 'capistrano/git-submodule-strategy'
 
 # Load custom tasks from `lib/capistrano/tasks` if you have any defined
 Dir.glob("lib/capistrano/tasks/*.rake").each { |r| import r }

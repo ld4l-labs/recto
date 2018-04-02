@@ -38,6 +38,10 @@ set :npm_flags, '--silent --no-progress'
 set :npm_roles, :all
 set :npm_env_variables, {}
 
+# Git Submodule Strategy Options
+set :git_strategy, Capistrano::Git::SubmoduleStrategy
+set :git_keep_meta, false # Discard `.git` and other cruft
+
 namespace :deploy do
   desc 'Start server'
   after :finished, :restart do
