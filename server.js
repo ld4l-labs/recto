@@ -28,7 +28,7 @@ app.use(bodyParser.json({limit:'250mb'}));
 app.use(express.static(__dirname + '/'));
 
 app.use('/profile-edit', express.static(path.join(__dirname, '/profile-edit/source')));
-app.use('/bfe', express.static(path.join(__dirname, '/bfe')));
+app.use('/recto', express.static(path.join(__dirname, '/recto')));
 
 app.listen(3000, function() {
   console.log('listening on 3000');
