@@ -43,6 +43,7 @@ namespace :deploy do
   after :finished, :restart do
     on roles(:app) do
       within release_path do
+        execute "cd #{release_path}/profile-edit/source && npm install && npm install angular-local-storage && grunt --force"
         execute "cd #{release_path} && forever stopall && sleep 5 && forever start server.js"
         execute 'sleep 5; true'
         execute 'cd /opt/app/bibframe/verso && forever start server/server.js'
