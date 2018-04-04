@@ -2,6 +2,7 @@ set :application, 'recto'
 set :repo_url, 'https://github.com/ld4l-labs/recto.git'
 set :user, 'bibframe'
 set :profiles, 'ld4p-loc-profiles-dev.stanford.edu:~/profile-edit/source/profiles'
+set :bfe, ''
 
 # Default branch is :master
 ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
@@ -34,12 +35,16 @@ set :linked_dirs, ['bfe/static/profiles']
 set :keep_releases, 3
 
 set :npm_target_path, (-> { release_path })
-# set :npm_target_path, (-> { "#{release_path}/profile-edit/source" })
 set :npm_flags, '--silent --no-progress'
 set :npm_roles, :all
 set :npm_env_variables, {}
 
 namespace :deploy do
+  task :npm_profile_edit do
+    on roles(:app) do
+       execute "cd #{release_path}/profile-edit/source && npm install && npm install angular-local-storage && grunt --force"
+    end
+  end
   desc 'Start server'
   after :finished, :restart do
     on roles(:app) do
