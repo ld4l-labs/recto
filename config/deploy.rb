@@ -31,7 +31,7 @@ set :linked_dirs, ['bfe/static/profiles']
 # set :default_env, { path: "/opt/ruby/bin:$PATH" }
 
 # Default value for keep_releases is 5
-# set :keep_releases, 5
+set :keep_releases, 3
 
 # set :npm_target_path, (-> { release_path })
 # set :npm_flags, '--silent --no-progress'
