@@ -33,10 +33,10 @@ set :linked_dirs, ['bfe/static/profiles']
 # Default value for keep_releases is 5
 # set :keep_releases, 5
 
-set :npm_target_path, (-> { release_path })
-set :npm_flags, '--silent --no-progress'
-set :npm_roles, :all
-set :npm_env_variables, {}
+# set :npm_target_path, (-> { release_path })
+# set :npm_flags, '--silent --no-progress'
+# set :npm_roles, :all
+# set :npm_env_variables, {}
 
 namespace :deploy do
   desc 'Start server'
