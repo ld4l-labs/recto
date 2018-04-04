@@ -33,16 +33,17 @@ set :linked_dirs, ['bfe/static/profiles']
 # Default value for keep_releases is 5
 set :keep_releases, 3
 
-# set :npm_target_path, (-> { release_path })
-# set :npm_flags, '--silent --no-progress'
-# set :npm_roles, :all
-# set :npm_env_variables, {}
+set :npm_target_path, (-> { release_path })
+set :npm_flags, '--silent --no-progress'
+set :npm_roles, :all
+set :npm_env_variables, {}
 
 namespace :deploy do
   desc 'Start server'
   after :finished, :restart do
     on roles(:app) do
       within release_path do
+        execute 'cd #{release_path}/profile-edit/source && npm install && npm install angular-local-storage && grunt --force'
         execute "cd #{release_path} && forever stopall && sleep 5 && forever start server.js"
         execute 'sleep 5; true'
         execute 'cd /opt/app/bibframe/verso && forever start server/server.js'
