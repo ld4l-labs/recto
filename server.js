@@ -4,8 +4,13 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const profile = "/bfe/static/profiles/bibframe/";
 const resources = "/resources/";
+const https = require("https");
 const fs = require('fs');
 const _ = require('underscore');
+const options = {
+    key: fs.readFileSync("/etc/pki/tls/private/ld4p-loc-bfe-dev.stanford.edu.key"),
+    cert: fs.readFileSync("/etc/pki/tls/certs/ld4p-loc-bfe-dev.stanford.edu.crt")
+};
 var proxy = require('http-proxy-middleware');
 
 versoProxy = proxy({target: 'http://localhost:3001', pathRewrite: {'^/verso' : '/verso'
@@ -30,10 +35,13 @@ app.use(express.static(__dirname + '/'));
 app.use('/profile-edit', express.static(path.join(__dirname, '/profile-edit/source')));
 app.use('/recto', express.static(path.join(__dirname, '/recto')));
 
-app.listen(3000, function() {
-  console.log('listening on 3000');
-})
+// app.listen(3000, function() {
+//   console.log('listening on 3000');
+// })
 
+https.createServer(options, app).listen(3000, function() {
+    console.log('SSL listening on 3000');
+});
 
 //RESTful route
 //BFE
