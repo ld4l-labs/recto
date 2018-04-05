@@ -26,7 +26,7 @@ set :deploy_to, "/opt/app/#{fetch(:user)}/#{fetch(:application)}"
 
 # Default value for linked_dirs is []
 # append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system"
-set :linked_dirs, ['bfe/static/profiles']
+set :linked_dirs, ['bfe/static/profiles', 'profile-edit/source/profiles']
 
 # Default value for default_env is {}
 # set :default_env, { path: "/opt/ruby/bin:$PATH" }
